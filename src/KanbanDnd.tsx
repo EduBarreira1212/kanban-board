@@ -19,6 +19,7 @@ import ColumnContainer from "./components/kanban/ColumnContainer";
 import ColumnDropZone from "./components/kanban/ColumnDropZone";
 import OverlayCard from "./components/kanban/OverlayCard";
 import TaskCard from "./components/kanban/TaskCard";
+import createLeadId from "./helpers/create-id";
 
 type ColumnId = "message" | "scheduling" | "visit";
 
@@ -68,6 +69,11 @@ function getTaskTitle(board: BoardState, taskId: string) {
 export default function KanbanDnd() {
   const [board, setBoard] = useState<BoardState>(initialState);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [draftByColumn, setDraftByColumn] = useState<Record<ColumnId, string>>({
+    message: "",
+    scheduling: "",
+    visit: "",
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -143,6 +149,35 @@ export default function KanbanDnd() {
     });
   }
 
+  function addTask(columnId: ColumnId, title: string) {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+
+    const id = createLeadId();
+
+    setBoard((prev) => {
+      const newTasks = {
+        ...prev.tasks,
+        [id]: { id, title: trimmed },
+      };
+
+      const col = prev.columns[columnId];
+      const newCol: Column = {
+        ...col,
+        taskIds: [id, ...col.taskIds],
+      };
+
+      return {
+        ...prev,
+        tasks: newTasks,
+        columns: {
+          ...prev.columns,
+          [columnId]: newCol,
+        },
+      };
+    });
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 p-6">
       <div className="mx-auto max-w-275">
@@ -166,6 +201,32 @@ export default function KanbanDnd() {
           <div className="flex gap-4 overflow-x-auto pb-2">
             {columns.map((col) => (
               <ColumnContainer key={col.id} title={col.title}>
+                <form
+                  className="mb-3 flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    addTask(col.id, draftByColumn[col.id]);
+                    setDraftByColumn((prev) => ({ ...prev, [col.id]: "" }));
+                  }}
+                >
+                  <input
+                    value={draftByColumn[col.id]}
+                    onChange={(e) =>
+                      setDraftByColumn((prev) => ({
+                        ...prev,
+                        [col.id]: e.target.value,
+                      }))
+                    }
+                    placeholder="New lead..."
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-slate-500"
+                  />
+                  <button
+                    type="submit"
+                    className="shrink-0 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-900 hover:bg-white"
+                  >
+                    Add
+                  </button>
+                </form>
                 <SortableContext
                   items={col.taskIds}
                   strategy={verticalListSortingStrategy}
